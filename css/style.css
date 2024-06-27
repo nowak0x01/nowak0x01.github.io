@@ -1,0 +1,47 @@
+.animated-cursor {
+    position: fixed;
+    pointer-events: none;
+    top: 0;
+    left: 0;
+    width: 20px;
+    height: 20px;
+    background-image: url('/img/011010010111010001100001011000110110100001101001.gif');
+    background-size: cover;
+    z-index: 9999;
+}
+
+body {
+    background-color: #000;
+    color: #fff;
+    text-align: center;
+    padding: 50px;
+    font-family: 'Anonymous Pro', monospace;
+    cursor: none;
+}
+
+footer {
+    position: fixed;
+    bottom: 0;
+    width: 100%;
+    background-color: #000;
+    color: #fff;
+    padding: 10px 0;
+    font-family: 'Anonymous Pro', monospace;
+}
+
+footer a {
+    color: #fff;
+    text-decoration: none;
+    margin: 0 10px;
+}
+
+footer a:hover {
+    text-decoration: underline;
+}
+
+.certifications,
+.papers,
+.trainings {
+    text-align: left;
+    margin-bottom: 20px;
+}

